@@ -1,6 +1,9 @@
 #! /usr/bin/env Rscript
+
+cat("Program path:", unlist(strsplit(grep(commandArgs(), pattern = "file=", value = T), split = "="))[2], "\n")
+
 args <- commandArgs(trailingOnly = TRUE)
-print("Program path: /programs/cMYC-induced.genes.comaprison.r")
+
 if(length(args) != 1) {stop("The path to the DESEQ2 Robject is missing.")}
 library(limma)
 library(foreach)
@@ -20,7 +23,9 @@ condition <- sub(sub(Robject.path, pattern = "^.*ALL_BAMS/", replacement = ""), 
 Robject.path <- path.elements[length(path.elements)]
 
 load(Robject.path)
-con <- file('/workspace/lukasz/Michalina_Z/New_analyses/BL_SIGNATURE.txt')
+signature.path <- '/workspace/lukasz/NGS-all-in-one/TXT_FILES/MYC_Seitz.2011.txt'
+signature.name <- sub(basename(signature.path), pattern = "\\.txt", replacement = "")
+con <- file(signature.path)
 gene.list1 <- readLines(con)
 close(con)
 
@@ -41,7 +46,7 @@ rld.mx.sel <- rld.mx[rownames(rld.mx) %in% gene.list1.conv,]
 rld.mx.sel <- rld.mx.sel[!duplicated(rownames(rld.mx.sel)),]
 
 anno <- sampleTable %>% dplyr::select("condition")
-pdf(paste(condition, "cMYC-induced genes - BL_signature comparison heatmap.pdf", sep = "-"), height = 15, width = 8)
+pdf(paste(condition, "cMYC-induced genes", signature.name, "comparison heatmap.pdf", sep = "-"), height = 15, width = 8)
 heatmap0 <- pheatmap(rld.mx.sel, annotation_col = anno, fontsize_row = 5)
 dev.off()
 
@@ -58,13 +63,13 @@ if(all(rownames(rld.mx.sel.cat.t) == rownames(anno)) == TRUE) {
   {stop("Annotations do not match sample names.")}
 rld.mx.sel.cat.t.comb <- foreach(name = names(rld.mx.sel.cat.t.by), .combine = "cbind") %do% {rld.mx.sel.cat.t.by[[name]]}
 colnames(rld.mx.sel.cat.t.comb) <- names(rld.mx.sel.cat.t.by)
-heatmap1 <- pheatmap(rld.mx.sel.cat.t.comb, main = "cMYC-induced genes (median expression-categorized, condition-grouped)", filename = paste(condition, "cMYC-induced genes (median expression-categorized, condition-grouped).BL_signature.heatmap.pdf", sep = "."), height = 15, width = 8, fontsize_row = 5)
+heatmap1 <- pheatmap(rld.mx.sel.cat.t.comb, main = "cMYC-induced genes (median expression-categorized, condition-grouped)", filename = paste(condition, "cMYC-induced genes (median expression-categorized, condition-grouped)", signature.name, "heatmap.pdf", sep = "."), height = 15, width = 8, fontsize_row = 5)
 rld.mx.sel.cat.t.comb.t <- t(rld.mx.sel.cat.t.comb)
 rld.mx.sel.cat.t.comb.t.pca.data <- prcomp(rld.mx.sel.cat.t.comb.t)
 rld.mx.sel.cat.t.comb.t.df <- as.data.frame(rld.mx.sel.cat.t.comb.t)
 rld.mx.sel.cat.t.comb.t.df$Condition <- rownames(rld.mx.sel.cat.t.comb.t.df)
 
-pdf(paste(condition, "cMYC-induced genes (median expression-categorized, condition-grouped).BL_signature.PCA.pdf", sep = "."))
+pdf(paste(condition, "cMYC-induced genes (median expression-categorized, condition-grouped)", signature.name, "PCA.pdf", sep = "."))
 autoplot(rld.mx.sel.cat.t.comb.t.pca.data, data = rld.mx.sel.cat.t.comb.t.df, size = 3, colour = "Condition") + 
   scale_color_manual(values = if (nrow(rld.mx.sel.cat.t.comb.t.pca.data$x)>25) {rainbow(nrow(rld.mx.sel.cat.t.comb.t.pca.data$x))} else {as.vector(cols25())}) + coord_fixed() + 
   labs(title = "PCA plot for cMYC-induced genes") + 
@@ -74,7 +79,7 @@ dev.off()
 rld.mx.sel.cat.t.comb[rld.mx.sel.cat.t.comb >= 0.5] <- 1
 rld.mx.sel.cat.t.comb[rld.mx.sel.cat.t.comb < 0.5] <- 0
 rld.mx.sel.cat.t.comb.df <- as.data.frame(rld.mx.sel.cat.t.comb) 
-heatmap2 <- pheatmap(rld.mx.sel.cat.t.comb, main = "cMYC-induced genes (median expression-categorized, binarized, condition-grouped)", filename = paste(condition, "cMYC-induced genes (median expression-categorized, binarized, condition-grouped).BL_signature.heatmap.pdf", sep = "."), height = 15, width = 8, fontsize_row = 5)
+heatmap2 <- pheatmap(rld.mx.sel.cat.t.comb, main = "cMYC-induced genes (median expression-categorized, binarized, condition-grouped)", filename = paste(condition, "cMYC-induced genes (median expression-categorized, binarized, condition-grouped)", signature.name, "heatmap.pdf", sep = "."), height = 15, width = 8, fontsize_row = 5)
 rld.mx.sel.cat.t.comb.df.bool <- rld.mx.sel.cat.t.comb.df == rld.mx.sel.cat.t.comb.df$BL
 rld.mx.sel.cat.t.comb.df.bool.t <- t(rld.mx.sel.cat.t.comb.df.bool)
 
@@ -82,7 +87,7 @@ f_fraction <- function(x) {
   return(paste(rowSums(x), "matching out of", length(x), "genes", "(", rowSums(x)/length(x), ")"))}
 
 fin.summary <- by(rld.mx.sel.cat.t.comb.df.bool.t, INDICES = rownames(rld.mx.sel.cat.t.comb.df.bool.t), FUN = f_fraction)
-sink(file =  paste(condition, "cMYC-induced genes-summary.BL_signature.txt"))
+sink(file =  paste(condition, "cMYC-induced genes-summary", signature.name, "txt", sep = "."))
 print(fin.summary)
 sink()
 
@@ -95,7 +100,7 @@ delcols <- c(1, ncol(rld.mx.sel.no.zeros.txp.merged), ncol(rld.mx.sel.no.zeros.t
 
 pca.data <- prcomp(rld.mx.sel.no.zeros.txp.merged[,-delcols])
 
-pdf(paste(condition, "cMYC-induced genes - BL_signature PCA plot.pdf", sep = "-"))
+pdf(paste(condition, "cMYC-induced genes", signature.name, "PCA plot.pdf", sep = "-"))
 autoplot(pca.data, data = rld.mx.sel.no.zeros.txp.merged, shape = "condition", colour = "SampleID", size = 3) + 
   scale_color_manual(values = if (nrow(pca.data$x)>25) {rainbow(nrow(pca.data$x))} else {as.vector(cols25())}) + coord_fixed() + 
   labs(title = "PCA plot for cMYC-induced genes") + 
